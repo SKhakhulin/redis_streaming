@@ -11,8 +11,9 @@ import (
 	"github.com/redis_streaming/pkg/event"
 )
 
+// TODO: use struct from target project
 const (
-	Count = 5000
+	Count = 500
 	MaxCount = 50
 	MaxUserIDRange = 10000
 	GroupName ="testGroup"
@@ -53,12 +54,10 @@ func produceMessage(client *redis.Client)  {
 		},
 	})
 
-	newID, err := strCMD.Result()
+	_, err := strCMD.Result()
 
 	if err != nil {
 		fmt.Printf("test error:%v\n", err)
-	} else {
-		fmt.Printf("test success for user:%v offset:%v\n", userID, newID)
 	}
 
 }

@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/redis_streaming/pkg/config"
+	"github.com/redis_streaming/pkg/event"
 	"os"
 
 )
 
-
-
+// TODO: use struct from target project
 const (
-	Count = 50
-	GroupName ="testGroup"
+	GroupName = "testGroup"
 	OrderStream = "order"
 )
 
@@ -30,7 +29,7 @@ func main() {
 		panic(err)
 	}
 
-	events := eventFetcher(client, Count, consumerName)
+	events := eventFetcher(client, consumerName)
 	consumeEvents(client, events)
 
 	quit := make(chan bool)
@@ -38,26 +37,36 @@ func main() {
 }
 
 
-func eventFetcher(client *redis.Client, count int64, consumerName string) chan redis.XMessage {
-	c := make(chan redis.XMessage, 10)
+func eventFetcher(client *redis.Client, consumerName string) chan event.Event {
+	c := make(chan event.Event, 100)
 	go func() {
 		for {
 			func() {
 				rr, err := client.XReadGroup(
-						&redis.XReadGroupArgs{
-						Group:    GroupName,
-						Count:    count,
+					&redis.XReadGroupArgs{
 						Consumer: consumerName,
+						Group:    GroupName,
 						Streams:  []string{OrderStream, ">"},
 				}).Result()
 				if err != nil {
 					panic(err)
 				}
-
 				for _, stream := range rr {
 					for _, message := range stream.Messages {
-						//TODO: UnmarshalBinary
-						c <- message
+						t := message.Values["type"].(string)
+						e, err := event.New(event.Type(t))
+						if err != nil {
+							panic(err)
+						}
+						err = e.UnmarshalBinary([]byte(message.Values["data"].(string)))
+						if err != nil {
+							// TODO: Choose strategy
+							client.XDel("orders", message.ID)
+							fmt.Printf("fail to unmarshal event:%v\n", message.ID)
+							return
+						}
+						e.SetID(message.ID)
+						c <- e
 					}
 				}
 			}()
@@ -66,30 +75,37 @@ func eventFetcher(client *redis.Client, count int64, consumerName string) chan r
 	return c
 }
 
-func consumeEvents(client *redis.Client, events chan redis.XMessage){
-	fmt.Printf("XAck:%v\n", events)
-	//for {
+func consumeEvents(client *redis.Client, events chan event.Event){
+ 	go func() {
+		for {
+			var IDs []string
+			var items []event.Event
+			items = append(items, <-events)
 
-	//	select {
-	//	case e := <-events:
-	//		fmt.Printf("XAck:%v\n", e)
-	//		//var IDs []string
-	//		//for message := range events {
-	//		//	IDs = append(IDs, message.ID)
-	//		//}
-	//		//fmt.Printf("IDs:%v\n", IDs)
-	//		//
-	//		//n, err := client.XAck(OrderStream, GroupName, IDs...).Result()
-	//		//
-	//		//if err != nil {
-	//		//	panic(err)
-	//		//}
-	//		//fmt.Printf("XAck:%v\n", n)
-	//	}
-	//
-	}
-//}
+			remains := 49
 
+		Remaining:
+			for i := 0; i < remains; i++ {
+				select {
+					case item := <-events:
+						items = append(items, item)
+						IDs = append(IDs, item.GetID())
+					default:
+						break Remaining
+				}
+			}
+
+			fmt.Printf("process events: \n%v start: %v\n\n", len(items), IDs)
+			if len(IDs) > 0 {
+				_, err := client.XAck(OrderStream, GroupName, IDs...).Result()
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+	}()
+}
+//XPENDING order testGroup
 
 func newRedisClient(cfg *config.Config) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{

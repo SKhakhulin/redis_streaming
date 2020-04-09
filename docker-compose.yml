@@ -16,22 +16,21 @@ services:
       - REDIS_HOSTS=local:redis:6379
     ports:
       - "8081:8081"
-
+    depends_on:
+      - redis
   producer:
-    container_name: producer
-    hostname: producer
     build: ./
     command: ['/app/producer']
     environment:
       - REDIS_HOST=redis
-
+    depends_on:
+      - redis
   consumer:
-    container_name: consumer
-    hostname: consumer
     build: ./
     command: ['/app/consumer']
     environment:
       - REDIS_HOST=redis
     deploy:
       replicas: 2
-
+    depends_on:
+      - redis
