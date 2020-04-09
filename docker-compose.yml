@@ -34,3 +34,4 @@ services:
       replicas: 2
     depends_on:
       - redis
+      - producer

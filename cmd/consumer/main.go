@@ -38,7 +38,7 @@ func main() {
 
 
 func eventFetcher(client *redis.Client, consumerName string) chan event.Event {
-	c := make(chan event.Event, 100)
+	c := make(chan event.Event, 50)
 	go func() {
 		for {
 			func() {
@@ -82,7 +82,7 @@ func consumeEvents(client *redis.Client, events chan event.Event){
 			var items []event.Event
 			items = append(items, <-events)
 
-			remains := 49
+			remains := 50
 
 		Remaining:
 			for i := 0; i < remains; i++ {
