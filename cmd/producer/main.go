@@ -13,7 +13,7 @@ import (
 
 // TODO: use struct from target project
 const (
-	Count = 500
+	Count = 5000
 	MaxCount = 50
 	MaxUserIDRange = 10000
 	GroupName ="testGroup"

@@ -46,6 +46,7 @@ func eventFetcher(client *redis.Client, consumerName string) chan event.Event {
 					&redis.XReadGroupArgs{
 						Consumer: consumerName,
 						Group:    GroupName,
+						Count: 1,
 						Streams:  []string{OrderStream, ">"},
 				}).Result()
 				if err != nil {
@@ -80,7 +81,9 @@ func consumeEvents(client *redis.Client, events chan event.Event){
 		for {
 			var IDs []string
 			var items []event.Event
-			items = append(items, <-events)
+			item := <-events
+			items = append(items, item)
+			IDs = append(IDs, item.GetID())
 
 			remains := 50
 
@@ -94,13 +97,15 @@ func consumeEvents(client *redis.Client, events chan event.Event){
 						break Remaining
 				}
 			}
-
-			fmt.Printf("process events: \n%v start: %v\n\n", len(items), IDs)
+			if len(items) > 0 {
+				fmt.Printf("process events: \n%v start: %v\n\n", len(items), IDs)
+			}
 			if len(IDs) > 0 {
-				_, err := client.XAck(OrderStream, GroupName, IDs...).Result()
+				n, err := client.XAck(OrderStream, GroupName, IDs...).Result()
 				if err != nil {
 					panic(err)
 				}
+				fmt.Printf("XAck: %v\n", n)
 			}
 		}
 	}()
