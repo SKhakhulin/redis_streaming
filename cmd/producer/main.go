@@ -13,11 +13,13 @@ import (
 
 // TODO: use struct from target project
 const (
-	Count = 5000
+	Count = 50
 	MaxCount = 50
 	MaxUserIDRange = 10000
 	GroupName ="testGroup"
 	OrderStream = "order"
+	//https://redis.io/commands/xadd
+	OrderStreamMaxLenApprox = 10000
 )
 
 func main() {
@@ -40,6 +42,7 @@ func produceMessage(client *redis.Client)  {
 	count := uint(rand.Intn(MaxCount))
 
 	strCMD := client.XAdd(&redis.XAddArgs{
+		//MaxLenApprox: OrderStreamMaxLenApprox,
 		Stream: OrderStream,
 		Values: map[string]interface{}{
 			"type": string(event.OrderType),
